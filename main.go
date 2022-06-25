@@ -87,7 +87,7 @@ func (w *World) Update() {
 	next := make([]color.RGBA, width*height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			pop := neighbourCount(w.area, width, height, x, y)
+			pop, emergingColor := neighbourCount(w.area, width, height, x, y)
 			switch {
 			case pop < 2:
 				// rule 1. Any live cell with fewer than two live neighbours
@@ -97,7 +97,7 @@ func (w *World) Update() {
 			case (pop == 2 || pop == 3) && (w.area[y*width+x] != bgColor):
 				// rule 2. Any live cell with two or three live neighbours
 				// lives on to the next generation.
-				next[y*width+x] = lifeColor
+				next[y*width+x] = emergingColor
 
 			case pop > 3:
 				// rule 3. Any live cell with more than three live neighbours
@@ -107,7 +107,7 @@ func (w *World) Update() {
 			case pop == 3:
 				// rule 4. Any dead cell with exactly three live neighbours
 				// becomes a live cell, as if by reproduction.
-				next[y*width+x] = lifeColor
+				next[y*width+x] = emergingColor
 			}
 		}
 	}
@@ -117,13 +117,20 @@ func (w *World) Update() {
 		currentWrench.status = running
 		currentWrench.Unlock()
 	}
-	if currentWrench.progress >= screenWidth {
+	if currentWrench.progress >= screenWidth && currentWrench.textPointer >= len(currentWrench.text) {
 		currentWrench.Lock()
 		currentWrench.status = stopped
 		currentWrench.progress = 0
+		currentWrench.textPointer = 0
 		currentWrench.Unlock()
 	}
 	if currentWrench.status == running {
+		if currentWrench.progress >= screenWidth {
+			currentWrench.Lock()
+			currentWrench.progress = 0
+			currentWrench.textPointer += 1
+			currentWrench.Unlock()
+		}
 		currentWrench.Lock()
 		for h := 0; h < currentWrench.boxHeight; h++ {
 			for w := 0; w < currentWrench.boxWidth; w++ {
@@ -150,44 +157,9 @@ func (w *World) Draw(pix []byte) {
 	}
 }
 
-func max(a, b int) int {
-	if a < b {
-		return b
-	}
-	return a
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// neighbourCount calculates the Moore neighborhood of (x, y).
-func neighbourCount(a []color.RGBA, width, height, x, y int) int {
-	c := 0
-	for j := -1; j <= 1; j++ {
-		for i := -1; i <= 1; i++ {
-			if i == 0 && j == 0 {
-				continue
-			}
-			x2 := x + i
-			y2 := y + j
-			if x2 < 0 || y2 < 0 || width <= x2 || height <= y2 {
-				continue
-			}
-			if a[y2*width+x2] != bgColor {
-				c++
-			}
-		}
-	}
-	return c
-}
-
 const (
-	screenWidth  = 640 //320
-	screenHeight = 480 //240
+	screenWidth  = 640 // 640 //320
+	screenHeight = 360 // 480 //240
 )
 
 type Game struct {
@@ -225,13 +197,15 @@ const (
 
 type wrench struct {
 	sync.Mutex
-	y         int
-	progress  int
-	status    status
-	stepSize  int
-	boxHeight int
-	boxWidth  int
-	color     color.RGBA
+	y           int
+	progress    int
+	status      status
+	stepSize    int
+	boxHeight   int
+	boxWidth    int
+	text        string
+	textPointer int
+	color       color.RGBA
 }
 
 //var chaosChan = make(chan wrench)
@@ -239,7 +213,8 @@ var currentWrench = wrench{
 	status:    fresh,
 	stepSize:  1,
 	boxHeight: 15,
-	boxWidth:  3,
+	boxWidth:  1,
+	text:      "It's alive",
 	color:     color.RGBA{250, 50, 0, 255},
 }
 
@@ -260,7 +235,7 @@ func main() {
 	}()
 	g := &Game{
 		//world: NewWorld(screenWidth, screenHeight, int((screenWidth*screenHeight)/10)),
-		world: NewWorld(screenWidth, screenHeight, int(10000)),
+		world: NewWorld(screenWidth, screenHeight, int(1000)),
 	}
 
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
