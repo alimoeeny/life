@@ -39,7 +39,7 @@ import (
 func init() {
 	rand.Seed(time.Now().UnixNano())
 	bgColor = color.RGBA{0, 0, 0, 0}
-	lifeColor = color.RGBA{10, 250, 10, 255}
+	lifeColor = color.RGBA{60, 200, 40, 255}
 }
 
 // World represents the game state.
@@ -78,7 +78,7 @@ var stepTimeStamp = time.Now()
 
 // Update game state by one tick.
 func (w *World) Update() {
-	if time.Since(stepTimeStamp) < 100*time.Millisecond {
+	if time.Since(stepTimeStamp) < 30*time.Millisecond {
 		return
 	}
 	stepTimeStamp = time.Now()
@@ -127,7 +127,9 @@ func (w *World) Update() {
 		currentWrench.Lock()
 		for h := 0; h < currentWrench.boxHeight; h++ {
 			for w := 0; w < currentWrench.boxWidth; w++ {
-				next[(currentWrench.y+h)*width+currentWrench.progress+w] = currentWrench.color
+				if (currentWrench.y+h)*width+currentWrench.progress+w < len(next) {
+					next[(currentWrench.y+h)*width+currentWrench.progress+w] = currentWrench.color
+				}
 			}
 		}
 		//log.Printf("%d -> %d \n", currentWrench.y, currentWrench.y*width+currentWrench.progress)
@@ -184,8 +186,8 @@ func neighbourCount(a []color.RGBA, width, height, x, y int) int {
 }
 
 const (
-	screenWidth  = 320
-	screenHeight = 240
+	screenWidth  = 640 //320
+	screenHeight = 480 //240
 )
 
 type Game struct {
@@ -236,8 +238,8 @@ type wrench struct {
 var currentWrench = wrench{
 	status:    fresh,
 	stepSize:  1,
-	boxHeight: 5,
-	boxWidth:  5,
+	boxHeight: 15,
+	boxWidth:  3,
 	color:     color.RGBA{250, 50, 0, 255},
 }
 
@@ -248,7 +250,7 @@ func main() {
 			//chaosChan <- newWrench
 			if currentWrench.status != running {
 				currentWrench.Lock()
-				currentWrench.y += 1 //rand.Intn(screenHeight)
+				currentWrench.y = rand.Intn(screenHeight)
 				currentWrench.status = fresh
 				currentWrench.Unlock()
 				log.Printf("🔧 %d\n", currentWrench.y)
@@ -257,8 +259,8 @@ func main() {
 		}
 	}()
 	g := &Game{
-		world: NewWorld(screenWidth, screenHeight, int((screenWidth*screenHeight)/10)),
-		//world: NewWorld(screenWidth, screenHeight, int(1000)),
+		//world: NewWorld(screenWidth, screenHeight, int((screenWidth*screenHeight)/10)),
+		world: NewWorld(screenWidth, screenHeight, int(10000)),
 	}
 
 	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
